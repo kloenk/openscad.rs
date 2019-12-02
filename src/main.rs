@@ -1,9 +1,10 @@
-mod lexer;
+#[macro_use] extern crate log;
 
-use lexer::TokType;
+use openscad::lexer::TokType;
 
 fn main() {
-    println!("reading main.scad");
+    env_logger::init();
+    info!("reading main.scad");
 
     let file = std::fs::read_to_string("main.scad").expect("could not open file");
 

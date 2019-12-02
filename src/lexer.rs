@@ -1,4 +1,5 @@
 
+
 #[derive(Debug, PartialEq, Clone)]
 #[allow(dead_code)]
 pub enum TokType {
@@ -126,6 +127,7 @@ impl TokType {
                         s.push(c);
                         it.next();
                     }
+                    trace!("StringLiteral: {}", s);
                     result.push(TokType::StringLiteral(s, "fixme".to_string()));
                 }
                 '\'' => {   // FIXME: EOF
@@ -139,9 +141,10 @@ impl TokType {
                         s.push(c);
                         it.next();
                     }
+                    trace!("StringLiteral: {}", s);
                     result.push(TokType::StringLiteral(s, "fixme".to_string()));
                 }
-                '0'..='9' => {  // FIXME: floating point?
+                '0'..='9' => {
                     it.next();
                     let mut number = c
                         .to_string()
@@ -159,25 +162,27 @@ impl TokType {
                                 let mut number = number as f64;
                                 let mut i = 10;
                                 while let Some(Ok(digit)) = it.peek().map(|c| c.to_string().parse::<i64>()) {
-                                    println!("divider is {}, so number is {}, additor is {}", i, number, (digit as f64 / f64::from(i)));
+                                    //println!("divider is {}, so number is {}, additor is {}", i, number, (digit as f64 / f64::from(i)));
                                     number += digit as f64 / f64::from(i);
-                                    println!("divider is {}, so number is {}, additor is {}", i, number, (digit as f64 / f64::from(i)));
+                                    //println!("divider is {}, so number is {}, additor is {}", i, number, (digit as f64 / f64::from(i)));
                                     i *= 10;
                                     it.next();
                                 }
-                                println!("number is {}", number);
+                                warn!("FConstants are still experimental: got floating constant {}", number);
                                 result.push(TokType::FConstant(number));
                             }
                             _ => {
+                                trace!("IConstant {}", number);
                                 result.push(TokType::IConstant(number));
                             }
                         }
                         _ => {
+                            trace!("IConstant {}", number);
                             result.push(TokType::IConstant(number));
                         }
                     }
                 }
-                'a'..='z' | 'A'..='Z' | '_' => {
+                'a'..='z' | 'A'..='Z' | '$' | '_' => {
                     it.next();
                     let mut s = String::new();
                     s.push(c);
@@ -192,6 +197,7 @@ impl TokType {
                             }
                         }
                     }
+                    trace!("got identifier {}", s);
                     match s.as_ref() {
                         "module" => result.push(TokType::Module),
                         "if" => result.push(TokType::IF),
@@ -388,6 +394,7 @@ impl TokType {
                                 result.push(TokType::DivAssign);
                             }
                             '/' => {
+                                trace!("got comment");
                                 it.next();
                                 while let Some(&c) = it.peek() {
                                     if c == '\n' {
@@ -398,6 +405,7 @@ impl TokType {
                                 }
                             }
                             '*' => {
+                                trace!("got comment");
                                 it.next();
                                 while let Some(&c) = it.peek() {    // FIXME: not ending?
                                     if c == '*' {
@@ -489,7 +497,7 @@ impl TokType {
                     it.next();
                 }
                 _ => {
-                    eprintln!("unexpected Character {}", c);
+                    error!("unexpected Character {}", c);
                     it.next();
                 }
             }
