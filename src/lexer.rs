@@ -1,4 +1,16 @@
 
+#[derive(Debug, PartialEq, Clone)]
+pub struct LexType {
+    pub token: TokType,
+    pub line: usize,
+    pub collum: usize,
+}
+
+impl LexType {
+    pub fn new(token: TokType, line: usize, collum: usize) -> Self {
+        Self { token, line, collum}
+    }
+}
 
 #[derive(Debug, PartialEq, Clone)]
 #[allow(dead_code)]
@@ -57,6 +69,7 @@ pub enum TokType {
     AndAssign,   // &=
     XorAssign,   // ^=
     OrAssign,    // |=
+    EOF,
     /* // TODO: this should be done when we found this is a typedef name,
     //       typedef LL int, then LL is typedef_name
     TypedefName,
@@ -109,43 +122,66 @@ pub enum TokType {
 
 impl TokType {
     #[allow(clippy::cognitive_complexity)]
-    pub fn lex(input: &str) -> Result<Vec<TokType>, String> {
+    pub fn lex(input: &str) -> Result<Vec<LexType>, String> {
         let mut result = Vec::new();
+
+        let mut line: usize = 1;
+        let mut collum: usize = 1;
 
         let mut it = input.chars().peekable();
 
         while let Some(&c) = it.peek() {
             match c {
                 '"' => {    // FIXME: EOF
+                    collum += 1;
+                    let start = collum;
+                    let start_line = line;
                     it.next();
                     let mut s = "".to_string();
                     while let Some(&c) = it.peek() {
                         if c == '"' {
+                            collum += 1;;
                             it.next();
                             break;
                         }
+                        if c == '\n' {
+                            collum = 1;
+                            line += 1;
+                        }
                         s.push(c);
+                        collum += 1;;
                         it.next();
                     }
                     trace!("StringLiteral: {}", s);
-                    result.push(TokType::StringLiteral(s, "fixme".to_string()));
+                    result.push(LexType::new(TokType::StringLiteral(s, "fixme".to_string()), start_line, start));
                 }
                 '\'' => {   // FIXME: EOF
                     it.next();
+                    collum += 1;
+                    let start = collum;
+                    let start_line = line;
                     let mut s = String::new();
                     while let Some(&c) = it.peek() {
                         if c == '\'' {
                             it.next();
+                            collum += 1;;
                             break;
+                        }
+                        if c == '\n' {
+                            collum = 1;
+                            line += 1;
                         }
                         s.push(c);
                         it.next();
+                        collum += 1;
                     }
-                    trace!("StringLiteral: {}", s);
-                    result.push(TokType::StringLiteral(s, "fixme".to_string()));
+                    trace!("StringLiteral: {} at {}:{}", s, line, collum);
+                    result.push(LexType::new(TokType::StringLiteral(s, "fixme".to_string()), start_line, start));
                 }
                 '0'..='9' => {
                     it.next();
+                    collum += 1;
+                    let start = collum;
                     let mut number = c
                         .to_string()
                         .parse::<i64>()
@@ -154,11 +190,13 @@ impl TokType {
                     while let Some(Ok(digit)) = it.peek().map(|c| c.to_string().parse::<i64>()) {
                         number = number * 10 + digit;
                         it.next();
+                        collum += 1;;
                     }
                     match it.peek() {
                         Some(tmp) => match tmp {
                             '.' => {
                                 it.next();
+                                collum += 1;;
                                 let mut number = number as f64;
                                 let mut i = 10;
                                 while let Some(Ok(digit)) = it.peek().map(|c| c.to_string().parse::<i64>()) {
@@ -167,23 +205,26 @@ impl TokType {
                                     //println!("divider is {}, so number is {}, additor is {}", i, number, (digit as f64 / f64::from(i)));
                                     i *= 10;
                                     it.next();
+                                    collum += 1;;
                                 }
                                 warn!("FConstants are still experimental: got floating constant {}", number);
-                                result.push(TokType::FConstant(number));
+                                result.push(LexType::new(TokType::FConstant(number), line, start));
                             }
                             _ => {
                                 trace!("IConstant {}", number);
-                                result.push(TokType::IConstant(number));
+                                result.push(LexType::new(TokType::IConstant(number), line, start));
                             }
                         }
                         _ => {
                             trace!("IConstant {}", number);
-                            result.push(TokType::IConstant(number));
+                            result.push(LexType::new(TokType::IConstant(number), line, start));
                         }
                     }
                 }
                 'a'..='z' | 'A'..='Z' | '$' | '_' => {
                     it.next();
+                    collum += 1;
+                    let start = collum;
                     let mut s = String::new();
                     s.push(c);
                     while let Some(&tmp) = it.peek() {
@@ -191,6 +232,7 @@ impl TokType {
                             'a'..='z' | 'A'..='Z' | '0'..='9' | '_' => {
                                 s.push(tmp);
                                 it.next();
+                                collum += 1;;
                             }
                             _ => {
                                 break;
@@ -199,309 +241,373 @@ impl TokType {
                     }
                     trace!("got identifier {}", s);
                     match s.as_ref() {
-                        "module" => result.push(TokType::Module),
-                        "if" => result.push(TokType::IF),
-                        "else" => result.push(TokType::ELSE),
-                        _ => result.push(TokType::IDENTIFIER(s)),
+                        "module" => result.push(LexType::new(TokType::Module, line, start)),
+                        "if" => result.push(LexType::new(TokType::IF, line, start)),
+                        "else" => result.push(LexType::new(TokType::ELSE, line, start)),
+                        _ => result.push(LexType::new(TokType::IDENTIFIER(s), line, start)),
                     }
                 }
                 '(' => {
                     it.next();
-                    result.push(TokType::LParen);
+                    collum += 1;;
+                    result.push(LexType::new(TokType::LParen, line, collum));
                 }
                 ')' => {
                     it.next();
-                    result.push(TokType::RParen);
+                    collum += 1;;
+                    result.push(LexType::new(TokType::RParen, line, collum));
                 }
                 '{' => {
                     it.next();
-                    result.push(TokType::LBrace);
+                    collum += 1;;
+                    result.push(LexType::new(TokType::LBrace, line, collum));
                 }
                 '}' => {
                     it.next();
-                    result.push(TokType::RBrace);
+                    collum += 1;
+                    result.push(LexType::new(TokType::RBrace, line, collum));
                 }
                 '[' => {
                     it.next();
-                    result.push(TokType::LBracket);
+                    collum += 1;;
+                    result.push(LexType::new(TokType::LBracket, line, collum));
                 }
                 ']' => {
                     it.next();
-                    result.push(TokType::RBracket);
+                    collum += 1;;
+                    result.push(LexType::new(TokType::RBracket, line, collum));
                 }
                 ';' => {
                     it.next();
-                    result.push(TokType::Semicolon);
+                    collum += 1;;
+                    result.push(LexType::new(TokType::Semicolon, line, collum));
                 }
                 '=' => {
                     it.next();
+                    collum += 1;;
                     match it.peek() {
                         Some(tmp) => match tmp {
                             '=' => {
                                 it.next();
-                                result.push(TokType::EqOp);
+                                collum += 1;;
+                                result.push(LexType::new(TokType::EqOp, line, collum));
                             }
-                            _ => { result.push(TokType::Assign); },
+                            _ => { result.push(LexType::new(TokType::Assign, line, collum)); },
                         },
-                        _ => { result.push(TokType::Assign); },
+                        _ => { result.push(LexType::new(TokType::Assign, line, collum)); },
                     }
                 }
                 '<' => {
                     it.next();
+                    collum += 1;;
                     match it.peek() {
                         Some(tmp) => match tmp {
                             '=' => {
                                 it.next();
-                                result.push(TokType::LeOp);
+                                collum += 1;;
+                                result.push(LexType::new(TokType::LeOp, line, collum));
                             }
                             '<' => {
                                 it.next();
-                                result.push(TokType::LeftOp);
+                                collum += 1;;
+                                result.push(LexType::new(TokType::LeftOp, line, collum));
                             }
                             _ => {
-                                result.push(TokType::Lt);
+                                result.push(LexType::new(TokType::Lt, line, collum));
                             }
                         },
                         _ => {
-                            result.push(TokType::Lt);
+                            result.push(LexType::new(TokType::Lt, line, collum));
                         }
                     }
                 }
                 '>' => {
                     it.next();
+                    collum += 1;;
                     match it.peek() {
                         Some(tmp) => match tmp {
                             '=' => {
                                 it.next();
-                                result.push(TokType::GeOp);
+                                collum += 1;;
+                                result.push(LexType::new(TokType::GeOp, line, collum));
                             },
                             '>' => {
                                 it.next();
-                                result.push(TokType::RightOp);
+                                collum += 1;;
+                                result.push(LexType::new(TokType::RightOp, line, collum));
                             },
                             _ => {
-                                result.push(TokType::Gt);
+                                result.push(LexType::new(TokType::Gt, line, collum));
                             }
                         }
                         _ => {
-                            result.push(TokType::Gt);
+                            result.push(LexType::new(TokType::Gt, line, collum));
                         }
                     }
                 }
                 '-' => {
                     it.next();
+                    collum += 1;;
                     match it.peek() {
                         Some(tmp) => match tmp {
                             '-' => {
                                 it.next();
-                                result.push(TokType::DecOp);
+                                collum += 1;;
+                                result.push(LexType::new(TokType::DecOp, line, collum));
                             }
                             '=' => {
                                 it.next();
-                                result.push(TokType::SubAssign);
+                                collum += 1;;
+                                result.push(LexType::new(TokType::SubAssign, line, collum));
                             }
                             _ => {
-                                result.push(TokType::Minus);
+                                result.push(LexType::new(TokType::Minus, line, collum));
                             }
                         }
                         _ => {
-                            result.push(TokType::Minus);
+                            result.push(LexType::new(TokType::Minus, line, collum));
                         }
                     }
                 }
                 '~' => {
                     it.next();
-                    result.push(TokType::Tilde);
+                    collum += 1;;
+                    result.push(LexType::new(TokType::Tilde, line, collum));
                 }
                 '!' => {
                     it.next();
+                    collum += 1;;
                     match it.peek() {
                         Some(tmp) => match tmp {
                             '=' => {
                                 it.next();
-                                result.push(TokType::NeOp);
+                                collum += 1;;
+                                result.push(LexType::new(TokType::NeOp, line, collum));
                             }
                             _ => {
-                                result.push(TokType::Exclamation);
+                                result.push(LexType::new(TokType::Exclamation, line, collum));
                             }
                         }
                         _ => {
-                            result.push(TokType::Exclamation);
+                            result.push(LexType::new(TokType::Exclamation, line, collum));
                         }
                     }
                 }
                 '+' => {
                     it.next();
+                    collum += 1;;
                     match it.peek() {
                         Some(tmp) => match tmp {
                             '+' => {
                                 it.next();
-                                result.push(TokType::IncOp);
+                                collum += 1;;
+                                result.push(LexType::new(TokType::IncOp, line, collum));
                             }
                             '=' => {
                                 it.next();
-                                result.push(TokType::AddAssign);
+                                collum += 1;;
+                                result.push(LexType::new(TokType::AddAssign, line, collum));
                             }
                             _ => {
-                                result.push(TokType::Plus);
+                                result.push(LexType::new(TokType::Plus, line, collum));
                             }
                         }
                         _ => {
-                            result.push(TokType::Plus);
+                            result.push(LexType::new(TokType::Plus, line, collum));
                         }
                     }
                 }
                 '*' => {
                     it.next();
+                    collum += 1;;
                     match it.peek() {
                         Some(tmp) => match tmp {
                             '=' => {
                                 it.next();
-                                result.push(TokType::MulAssign);
+                                collum += 1;;
+                                result.push(LexType::new(TokType::MulAssign, line, collum));
                             }
                             _ => {
-                                result.push(TokType::Multi);
+                                result.push(LexType::new(TokType::Multi, line, collum));
                             }
                         }
                         _ => {
-                            result.push(TokType::Multi);
+                            result.push(LexType::new(TokType::Multi, line, collum));
                         }
                     }
                 }
                 '%' => {
                     it.next();
+                    collum += 1;;
                     match it.peek() {
                         Some(tmp) => match tmp {
                             '=' => {
                                 it.next();
-                                result.push(TokType::ModAssign);
+                                collum += 1;;
+                                result.push(LexType::new(TokType::ModAssign, line, collum));
                             }
                             _ => {
-                                result.push(TokType::Mod);
+                                result.push(LexType::new(TokType::Mod, line, collum));
                             }
                         }
                         _ => {
-                            result.push(TokType::Mod);
+                            result.push(LexType::new(TokType::Mod, line, collum));
                         }
                     }
                 }
                 '/' => {
                     it.next();
+                    collum += 1;
+                    let start = collum;
+                    let _start_line = line;
                     match it.peek() {
                         Some(tmp) => match tmp {
                             '=' => {
                                 it.next();
-                                result.push(TokType::DivAssign);
+                                collum += 1;;
+                                result.push(LexType::new(TokType::DivAssign, line, start));
                             }
                             '/' => {
                                 trace!("got comment");
                                 it.next();
+                                collum += 1;;
                                 while let Some(&c) = it.peek() {
                                     if c == '\n' {
                                         it.next();
+                                        collum = 1;
+                                        line += 1;
                                         break;
                                     }
                                     it.next();
+                                    collum += 1;;
                                 }
                             }
                             '*' => {
                                 trace!("got comment");
                                 it.next();
+                                collum += 1;;
                                 while let Some(&c) = it.peek() {    // FIXME: not ending?
                                     if c == '*' {
                                         it.next();
+                                        collum += 1;;
                                         if let Some(&c) = it.peek() {
                                             if c == '/' {
                                                 it.next();
+                                                collum += 1;;
                                                 break;
                                             }
                                             it.next();
+                                            collum += 1;;
                                         }
                                     }
+                                    if c == '\n' {
+                                        collum = 1;
+                                        line += 1;
+                                    }
                                     it.next();
+                                    collum += 1;;
                                 }
                             }
                             _ => {
-                                result.push(TokType::Splash);
+                                result.push(LexType::new(TokType::Splash, line, collum));
                             }
                         }
                         _ => {
-                            result.push(TokType::Splash);
+                            result.push(LexType::new(TokType::Splash, line, collum));
                         }
                     }
                 }
                 '&' => {
                     it.next();
+                    collum += 1;;
                     match it.peek() {
                         Some(tmp) => match tmp {
                             '&' => {
                                 it.next();
-                                result.push(TokType::AndOp);
+                                collum += 1;;
+                                result.push(LexType::new(TokType::AndOp, line, collum));
                             }
                             '=' => {
                                 it.next();
-                                result.push(TokType::AddAssign);
+                                collum += 1;;
+                                result.push(LexType::new(TokType::AndAssign, line, collum));
                             }
                             _ => {
-                                result.push(TokType::SingleAnd);
+                                result.push(LexType::new(TokType::SingleAnd, line, collum));
                             }
                         }
                         _ => {
-                            result.push(TokType::SingleAnd);
+                            result.push(LexType::new(TokType::SingleAnd, line, collum));
                         }
                     }
                 }
                 '|' => {
                     it.next();
+                    collum += 1;;
                     match it.peek() {
                         Some(tmp) => match tmp {
                             '|' => {
                                 it.next();
-                                result.push(TokType::OrOp);
+                                collum += 1;;
+                                result.push(LexType::new(TokType::OrOp, line, collum));
                             }
                             '=' => {
                                 it.next();
-                                result.push(TokType::OrAssign);
+                                collum += 1;;
+                                result.push(LexType::new(TokType::OrAssign, line, collum));
                             }
                             _ => {
-                                result.push(TokType::InclusiveOr);
+                                result.push(LexType::new(TokType::InclusiveOr, line, collum));
                             }
                         }
                         _ => {
-                            result.push(TokType::InclusiveOr);
+                            result.push(LexType::new(TokType::InclusiveOr, line, collum));
                         }
                     }
                 },
                 '?' => {
                     it.next();
-                    result.push(TokType::QuestionMark);
+                    collum += 1;;
+                    result.push(LexType::new(TokType::QuestionMark, line, collum));
                 }
                 ':' => {
                     it.next();
-                    result.push(TokType::Colon);
+                    collum += 1;;
+                    result.push(LexType::new(TokType::Colon, line, collum));
                 }
                 ',' => {
                     it.next();
-                    result.push(TokType::Colon);
+                    collum += 1;;
+                    result.push(LexType::new(TokType::Comma, line, collum));
                 }
                 '#' => {
                     it.next();
-                    result.push(TokType::Highlight);
+                    collum += 1;;
+                    result.push(LexType::new(TokType::Highlight, line, collum));
                 }
                 '.' => {
                     it.next();
-                    result.push(TokType::Dot);
+                    collum += 1;;
+                    result.push(LexType::new(TokType::Dot, line, collum));
                 }
-                ' ' | '\n' | '\t' | '\r' => {
+                ' ' | '\t' | '\r' => {
                     //skip
                     it.next();
+                    collum += 1;;
+                }
+                '\n' => {
+                    it.next();
+                    collum = 1;
+                    line += 1;
                 }
                 _ => {
-                    error!("unexpected Character {}", c);
-                    it.next();
+                    //error!("unexpected Character {}", c);
+                    //it.next();
+                    return Err(format!("unexpected Character {} at {}:{}", c, line, collum));
                 }
             }
         }
+        result.push(LexType::new(TokType::EOF, line, collum));
         Ok(result)
     }
 }
