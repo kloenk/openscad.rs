@@ -1,4 +1,7 @@
 
+#[cfg(test)]
+mod test;
+
 #[derive(Debug, PartialEq, Clone)]
 pub struct LexType {
     pub token: TokType,
@@ -223,8 +226,8 @@ impl TokType {
                 }
                 'a'..='z' | 'A'..='Z' | '$' | '_' => {
                     it.next();
-                    collum += 1;
                     let start = collum;
+                    collum += 1;
                     let mut s = String::new();
                     s.push(c);
                     while let Some(&tmp) = it.peek() {
@@ -249,7 +252,7 @@ impl TokType {
                 }
                 '(' => {
                     it.next();
-                    collum += 1;;
+                    collum += 1;
                     result.push(LexType::new(TokType::LParen, line, collum));
                 }
                 ')' => {
