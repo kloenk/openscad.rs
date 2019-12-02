@@ -115,7 +115,7 @@ impl TokType {
 
         while let Some(&c) = it.peek() {
             match c {
-                '"' => {
+                '"' => {    // FIXME: EOF
                     it.next();
                     let mut s = "".to_string();
                     while let Some(&c) = it.peek() {
@@ -128,7 +128,7 @@ impl TokType {
                     }
                     result.push(TokType::StringLiteral(s, "fixme".to_string()));
                 }
-                '\'' => {
+                '\'' => {   // FIXME: EOF
                     it.next();
                     let mut s = String::new();
                     while let Some(&c) = it.peek() {
@@ -386,6 +386,32 @@ impl TokType {
                             '=' => {
                                 it.next();
                                 result.push(TokType::DivAssign);
+                            }
+                            '/' => {
+                                it.next();
+                                while let Some(&c) = it.peek() {
+                                    if c == '\n' {
+                                        it.next();
+                                        break;
+                                    }
+                                    it.next();
+                                }
+                            }
+                            '*' => {
+                                it.next();
+                                while let Some(&c) = it.peek() {    // FIXME: not ending?
+                                    if c == '*' {
+                                        it.next();
+                                        if let Some(&c) = it.peek() {
+                                            if c == '/' {
+                                                it.next();
+                                                break;
+                                            }
+                                            it.next();
+                                        }
+                                    }
+                                    it.next();
+                                }
                             }
                             _ => {
                                 result.push(TokType::Splash);
