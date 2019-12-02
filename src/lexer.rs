@@ -1,5 +1,6 @@
 
 #[derive(Debug, PartialEq, Clone)]
+#[allow(dead_code)]
 pub enum TokType {
     LBrace,       // {
     RBrace,       // }
@@ -106,6 +107,7 @@ pub enum TokType {
 }
 
 impl TokType {
+    #[allow(clippy::cognitive_complexity)]
     pub fn lex(input: &str) -> Result<Vec<TokType>, String> {
         let mut result = Vec::new();
 
@@ -113,7 +115,6 @@ impl TokType {
 
         while let Some(&c) = it.peek() {
             match c {
-                // TODO: String literal?
                 '"' => {
                     it.next();
                     let mut s = "".to_string();
@@ -127,7 +128,20 @@ impl TokType {
                     }
                     result.push(TokType::StringLiteral(s, "fixme".to_string()));
                 }
-                '0'...'9' => {  // FIXME: floating point?
+                '\'' => {
+                    it.next();
+                    let mut s = String::new();
+                    while let Some(&c) = it.peek() {
+                        if c == '\'' {
+                            it.next();
+                            break;
+                        }
+                        s.push(c);
+                        it.next();
+                    }
+                    result.push(TokType::StringLiteral(s, "fixme".to_string()));
+                }
+                '0'..='9' => {  // FIXME: floating point?
                     it.next();
                     let mut number = c
                         .to_string()
@@ -145,10 +159,10 @@ impl TokType {
                                 let mut number = number as f64;
                                 let mut i = 10;
                                 while let Some(Ok(digit)) = it.peek().map(|c| c.to_string().parse::<i64>()) {
-                                    println!("divider is {}, so number is {}, additor is {}", i, number, (digit as f64 / i as f64));
-                                    number = number + (digit as f64 / i as f64);
-                                    println!("divider is {}, so number is {}, additor is {}", i, number, (digit as f64 / i as f64));
-                                    i = i * 10;
+                                    println!("divider is {}, so number is {}, additor is {}", i, number, (digit as f64 / f64::from(i)));
+                                    number += digit as f64 / f64::from(i);
+                                    println!("divider is {}, so number is {}, additor is {}", i, number, (digit as f64 / f64::from(i)));
+                                    i *= 10;
                                     it.next();
                                 }
                                 println!("number is {}", number);
@@ -163,13 +177,13 @@ impl TokType {
                         }
                     }
                 }
-                'a'...'z' | 'A'...'Z' | '_' => {
+                'a'..='z' | 'A'..='Z' | '_' => {
                     it.next();
                     let mut s = String::new();
                     s.push(c);
                     while let Some(&tmp) = it.peek() {
                         match tmp {
-                            'a'...'z' | 'A'...'Z' | '0'...'9' | '_' => {
+                            'a'..='z' | 'A'..='Z' | '0'..='9' | '_' => {
                                 s.push(tmp);
                                 it.next();
                             }
@@ -221,9 +235,9 @@ impl TokType {
                                 it.next();
                                 result.push(TokType::EqOp);
                             }
-                            _ => {result.push(TokType::Assign);},
+                            _ => { result.push(TokType::Assign); },
                         },
-                        _ => return Err(format!("can not peek next char")),
+                        _ => { result.push(TokType::Assign); },
                     }
                 }
                 '<' => {
