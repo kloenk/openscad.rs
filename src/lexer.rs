@@ -1,4 +1,16 @@
 
+#[derive(Debug, PartialEq, Clone)]
+pub struct LexType {
+    pub token: TokType,
+    pub line: usize,
+    pub collum: usize,
+}
+
+impl LexType {
+    pub fn new(token: TokType, line: usize, collum: usize) -> Self {
+        Self { token, line, collum}
+    }
+}
 
 #[derive(Debug, PartialEq, Clone)]
 #[allow(dead_code)]
@@ -112,19 +124,29 @@ impl TokType {
     pub fn lex(input: &str) -> Result<Vec<TokType>, String> {
         let mut result = Vec::new();
 
+        let mut line: usize = 1;
+        let mut collum: usize = 1;
+
         let mut it = input.chars().peekable();
 
         while let Some(&c) = it.peek() {
             match c {
                 '"' => {    // FIXME: EOF
+                    collum += 1;;
                     it.next();
                     let mut s = "".to_string();
                     while let Some(&c) = it.peek() {
                         if c == '"' {
+                            collum += 1;;
                             it.next();
                             break;
                         }
+                        if c == '\n' {
+                            collum = 1;
+                            line += 1;
+                        }
                         s.push(c);
+                        collum += 1;;
                         it.next();
                     }
                     trace!("StringLiteral: {}", s);
@@ -132,20 +154,28 @@ impl TokType {
                 }
                 '\'' => {   // FIXME: EOF
                     it.next();
+                    collum += 1;;
                     let mut s = String::new();
                     while let Some(&c) = it.peek() {
                         if c == '\'' {
                             it.next();
+                            collum += 1;;
                             break;
+                        }
+                        if c == '\n' {
+                            collum = 1;
+                            line += 1;
                         }
                         s.push(c);
                         it.next();
+                        collum += 1;;
                     }
-                    trace!("StringLiteral: {}", s);
+                    trace!("StringLiteral: {} at {}:{}", s, line, collum);
                     result.push(TokType::StringLiteral(s, "fixme".to_string()));
                 }
                 '0'..='9' => {
                     it.next();
+                    collum += 1;;
                     let mut number = c
                         .to_string()
                         .parse::<i64>()
@@ -154,11 +184,13 @@ impl TokType {
                     while let Some(Ok(digit)) = it.peek().map(|c| c.to_string().parse::<i64>()) {
                         number = number * 10 + digit;
                         it.next();
+                        collum += 1;;
                     }
                     match it.peek() {
                         Some(tmp) => match tmp {
                             '.' => {
                                 it.next();
+                                collum += 1;;
                                 let mut number = number as f64;
                                 let mut i = 10;
                                 while let Some(Ok(digit)) = it.peek().map(|c| c.to_string().parse::<i64>()) {
@@ -167,6 +199,7 @@ impl TokType {
                                     //println!("divider is {}, so number is {}, additor is {}", i, number, (digit as f64 / f64::from(i)));
                                     i *= 10;
                                     it.next();
+                                    collum += 1;;
                                 }
                                 warn!("FConstants are still experimental: got floating constant {}", number);
                                 result.push(TokType::FConstant(number));
@@ -184,6 +217,7 @@ impl TokType {
                 }
                 'a'..='z' | 'A'..='Z' | '$' | '_' => {
                     it.next();
+                    collum += 1;;
                     let mut s = String::new();
                     s.push(c);
                     while let Some(&tmp) = it.peek() {
@@ -191,6 +225,7 @@ impl TokType {
                             'a'..='z' | 'A'..='Z' | '0'..='9' | '_' => {
                                 s.push(tmp);
                                 it.next();
+                                collum += 1;;
                             }
                             _ => {
                                 break;
@@ -207,38 +242,47 @@ impl TokType {
                 }
                 '(' => {
                     it.next();
+                    collum += 1;;
                     result.push(TokType::LParen);
                 }
                 ')' => {
                     it.next();
+                    collum += 1;;
                     result.push(TokType::RParen);
                 }
                 '{' => {
                     it.next();
+                    collum += 1;;
                     result.push(TokType::LBrace);
                 }
                 '}' => {
                     it.next();
+                    collum += 1;;();
                     result.push(TokType::RBrace);
                 }
                 '[' => {
                     it.next();
+                    collum += 1;;
                     result.push(TokType::LBracket);
                 }
                 ']' => {
                     it.next();
+                    collum += 1;;
                     result.push(TokType::RBracket);
                 }
                 ';' => {
                     it.next();
+                    collum += 1;;
                     result.push(TokType::Semicolon);
                 }
                 '=' => {
                     it.next();
+                    collum += 1;;
                     match it.peek() {
                         Some(tmp) => match tmp {
                             '=' => {
                                 it.next();
+                                collum += 1;;
                                 result.push(TokType::EqOp);
                             }
                             _ => { result.push(TokType::Assign); },
@@ -248,14 +292,17 @@ impl TokType {
                 }
                 '<' => {
                     it.next();
+                    collum += 1;;
                     match it.peek() {
                         Some(tmp) => match tmp {
                             '=' => {
                                 it.next();
+                                collum += 1;;
                                 result.push(TokType::LeOp);
                             }
                             '<' => {
                                 it.next();
+                                collum += 1;;
                                 result.push(TokType::LeftOp);
                             }
                             _ => {
@@ -269,14 +316,17 @@ impl TokType {
                 }
                 '>' => {
                     it.next();
+                    collum += 1;;
                     match it.peek() {
                         Some(tmp) => match tmp {
                             '=' => {
                                 it.next();
+                                collum += 1;;
                                 result.push(TokType::GeOp);
                             },
                             '>' => {
                                 it.next();
+                                collum += 1;;
                                 result.push(TokType::RightOp);
                             },
                             _ => {
@@ -290,14 +340,17 @@ impl TokType {
                 }
                 '-' => {
                     it.next();
+                    collum += 1;;
                     match it.peek() {
                         Some(tmp) => match tmp {
                             '-' => {
                                 it.next();
+                                collum += 1;;
                                 result.push(TokType::DecOp);
                             }
                             '=' => {
                                 it.next();
+                                collum += 1;;
                                 result.push(TokType::SubAssign);
                             }
                             _ => {
@@ -311,14 +364,17 @@ impl TokType {
                 }
                 '~' => {
                     it.next();
+                    collum += 1;;
                     result.push(TokType::Tilde);
                 }
                 '!' => {
                     it.next();
+                    collum += 1;;
                     match it.peek() {
                         Some(tmp) => match tmp {
                             '=' => {
                                 it.next();
+                                collum += 1;;
                                 result.push(TokType::NeOp);
                             }
                             _ => {
@@ -332,14 +388,17 @@ impl TokType {
                 }
                 '+' => {
                     it.next();
+                    collum += 1;;
                     match it.peek() {
                         Some(tmp) => match tmp {
                             '+' => {
                                 it.next();
+                                collum += 1;;
                                 result.push(TokType::IncOp);
                             }
                             '=' => {
                                 it.next();
+                                collum += 1;;
                                 result.push(TokType::AddAssign);
                             }
                             _ => {
@@ -353,10 +412,12 @@ impl TokType {
                 }
                 '*' => {
                     it.next();
+                    collum += 1;;
                     match it.peek() {
                         Some(tmp) => match tmp {
                             '=' => {
                                 it.next();
+                                collum += 1;;
                                 result.push(TokType::MulAssign);
                             }
                             _ => {
@@ -370,10 +431,12 @@ impl TokType {
                 }
                 '%' => {
                     it.next();
+                    collum += 1;;
                     match it.peek() {
                         Some(tmp) => match tmp {
                             '=' => {
                                 it.next();
+                                collum += 1;;
                                 result.push(TokType::ModAssign);
                             }
                             _ => {
@@ -387,38 +450,53 @@ impl TokType {
                 }
                 '/' => {
                     it.next();
+                    collum += 1;;
                     match it.peek() {
                         Some(tmp) => match tmp {
                             '=' => {
                                 it.next();
+                                collum += 1;;
                                 result.push(TokType::DivAssign);
                             }
                             '/' => {
                                 trace!("got comment");
                                 it.next();
+                                collum += 1;;
                                 while let Some(&c) = it.peek() {
                                     if c == '\n' {
                                         it.next();
+                                        collum = 1;
+                                        line += 1;
                                         break;
                                     }
                                     it.next();
+                                    collum += 1;;
                                 }
                             }
                             '*' => {
                                 trace!("got comment");
                                 it.next();
+                                collum += 1;;
                                 while let Some(&c) = it.peek() {    // FIXME: not ending?
                                     if c == '*' {
                                         it.next();
+                                        collum += 1;;
                                         if let Some(&c) = it.peek() {
                                             if c == '/' {
                                                 it.next();
+                                                collum += 1;;
                                                 break;
                                             }
                                             it.next();
+                                            collum += 1;;
                                         }
                                     }
+                                    if c == '\n' {
+                                        collum = 1;
+                                        line += 1;
+                                    }
                                     it.next();
+                                    collum += 1;;
                                 }
                             }
                             _ => {
@@ -432,14 +510,17 @@ impl TokType {
                 }
                 '&' => {
                     it.next();
+                    collum += 1;;
                     match it.peek() {
                         Some(tmp) => match tmp {
                             '&' => {
                                 it.next();
+                                collum += 1;;
                                 result.push(TokType::AndOp);
                             }
                             '=' => {
                                 it.next();
+                                collum += 1;;
                                 result.push(TokType::AddAssign);
                             }
                             _ => {
@@ -453,14 +534,17 @@ impl TokType {
                 }
                 '|' => {
                     it.next();
+                    collum += 1;;
                     match it.peek() {
                         Some(tmp) => match tmp {
                             '|' => {
                                 it.next();
+                                collum += 1;;
                                 result.push(TokType::OrOp);
                             }
                             '=' => {
                                 it.next();
+                                collum += 1;;
                                 result.push(TokType::OrAssign);
                             }
                             _ => {
@@ -474,31 +558,43 @@ impl TokType {
                 },
                 '?' => {
                     it.next();
+                    collum += 1;;
                     result.push(TokType::QuestionMark);
                 }
                 ':' => {
                     it.next();
+                    collum += 1;;
                     result.push(TokType::Colon);
                 }
                 ',' => {
                     it.next();
+                    collum += 1;;
                     result.push(TokType::Colon);
                 }
                 '#' => {
                     it.next();
+                    collum += 1;;
                     result.push(TokType::Highlight);
                 }
                 '.' => {
                     it.next();
+                    collum += 1;;
                     result.push(TokType::Dot);
                 }
-                ' ' | '\n' | '\t' | '\r' => {
+                ' ' | '\t' | '\r' => {
                     //skip
                     it.next();
+                    collum += 1;;
+                }
+                '\n' => {
+                    it.next();
+                    collum = 1;
+                    line += 1;
                 }
                 _ => {
-                    error!("unexpected Character {}", c);
-                    it.next();
+                    //error!("unexpected Character {}", c);
+                    //it.next();
+                    return Err(format!("unexpected Character {} at {}:{}", c, line, collum));
                 }
             }
         }
