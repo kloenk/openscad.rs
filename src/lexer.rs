@@ -114,6 +114,19 @@ impl TokType {
         while let Some(&c) = it.peek() {
             match c {
                 // TODO: String literal?
+                '"' => {
+                    it.next();
+                    let mut s = "".to_string();
+                    while let Some(&c) = it.peek() {
+                        if c == '"' {
+                            it.next();
+                            break;
+                        }
+                        s.push(c);
+                        it.next();
+                    }
+                    result.push(TokType::StringLiteral(s, "fixme".to_string()));
+                }
                 '0'...'9' => {  // FIXME: floating point?
                     it.next();
                     let mut number = c
@@ -129,7 +142,17 @@ impl TokType {
                         Some(tmp) => match tmp {
                             '.' => {
                                 it.next();
-                                eprintln!("implement floating point");
+                                let mut number = number as f64;
+                                let mut i = 10;
+                                while let Some(Ok(digit)) = it.peek().map(|c| c.to_string().parse::<i64>()) {
+                                    println!("divider is {}, so number is {}, additor is {}", i, number, (digit as f64 / i as f64));
+                                    number = number + (digit as f64 / i as f64);
+                                    println!("divider is {}, so number is {}, additor is {}", i, number, (digit as f64 / i as f64));
+                                    i = i * 10;
+                                    it.next();
+                                }
+                                println!("number is {}", number);
+                                result.push(TokType::FConstant(number));
                             }
                             _ => {
                                 result.push(TokType::IConstant(number));
@@ -416,6 +439,10 @@ impl TokType {
                 '#' => {
                     it.next();
                     result.push(TokType::Highlight);
+                }
+                '.' => {
+                    it.next();
+                    result.push(TokType::Dot);
                 }
                 ' ' | '\n' | '\t' | '\r' => {
                     //skip
