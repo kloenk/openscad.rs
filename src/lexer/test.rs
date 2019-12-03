@@ -1,5 +1,4 @@
-
-use super::{TokType, LexType};
+use super::{LexType, TokType};
 
 #[test]
 fn lex() {
@@ -14,7 +13,10 @@ echo(version=version());
     let scad = TokType::lex(scad).unwrap();
 
     assert_eq!(scad.len(), 35);
-    assert_eq!(scad[0], LexType::new(TokType::IDENTIFIER("Lex".to_string()), 2, 1));
+    assert_eq!(
+        scad[0],
+        LexType::new(TokType::IDENTIFIER("Lex".to_string()), 2, 1)
+    );
     assert_eq!(scad[1], LexType::new(TokType::LParen, 2, 5));
     assert_eq!(scad[2], LexType::new(TokType::IConstant(20), 2, 6));
     assert_eq!(scad[3], LexType::new(TokType::RParen, 2, 8));

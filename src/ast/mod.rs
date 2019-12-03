@@ -1,26 +1,55 @@
+use std::fmt::{self, Display, Formatter};
+
 use super::lexer::{LexType, TokType};
+
+pub mod parser;
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct Expr {
+    /// The expression definition
+    pub def: AstNode,
+}
+
+impl Expr {
+    /// Create a new expression with a starting and ending position
+    pub fn new(def: AstNode) -> Self {
+        Self { def }
+    }
+}
+
+impl Display for Expr {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        write!(f, "{:?}", self.def) //FIXME: implement display
+    }
+}
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum AstNode {
-    CodeBlock(Vec<AstNode>),
-    FunctionCall(Vec<AstNode>),
+    Block(Vec<Expr>),
+    FunctionCall(Box<Expr>, Vec<Expr>),
     Condition(Box<Condition>),
 
+    // Constants
+    IConstant(i64),
+    FConstant(f64),
+    SConstant(String),
+
+    Override(Box<Expr>, Box<Expr>),
 
     // OPs
-    LeOp, // <=
-    GeOp, // >=
-    EqOp, // ==
-    NeOp, // !=
+    LeOp,  // <=
+    GeOp,  // >=
+    EqOp,  // ==
+    NeOp,  // !=
     AndOp, // &&
-    OrOp, // ||
+    OrOp,  // ||
 
     True,
-    False
+    False,
 }
 
 impl AstNode {
-    pub fn parse(lex: &[LexType]) -> Result<Self, String> {
+    /*pub fn parse(lex: &[LexType]) -> Result<Self, String> {
         let mut result = Vec::new();
 
         let mut it = lex.iter().peekable();
@@ -43,7 +72,7 @@ impl AstNode {
                                     }
                                     break;
                                 }
-                                
+
                             }
                         }
                     }
@@ -55,7 +84,7 @@ impl AstNode {
         }
 
         Ok(AstNode::CodeBlock(result))
-    }
+    }*/
 }
 
 #[derive(Debug, PartialEq, Clone)]
