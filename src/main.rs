@@ -1,5 +1,7 @@
-#[macro_use] extern crate log;
+#[macro_use]
+extern crate log;
 
+use openscad::ast::AstNode;
 use openscad::lexer::TokType;
 
 fn main() {
@@ -10,5 +12,10 @@ fn main() {
 
     let lex = TokType::lex(&file).expect("msg: &str");
 
-    println!("LEX: {:?}", lex);
+    let mut parser = openscad::ast::parser::Parser::new(lex.clone());
+    let ast = parser.parse_all();
+
+    info!("LEX: {:?}", lex);
+
+    info!("AST: {:?}", ast.unwrap());
 }
